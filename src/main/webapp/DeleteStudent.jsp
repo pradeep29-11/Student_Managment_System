@@ -8,111 +8,487 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Delete Student</title>
-     <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
     
-    <script>
-            function del(srno)
-            {
-                var status = confirm("Do you want to delete Student for Roll Number : "+srno);
-                
-                if( status == true)
-                {
-                    //call  a deleteServlet with rno as srno=101 with request method post
-                    //collect status[success,faild] from servlet
-                    
-                    //success --> show delete message
-                    //faild --> falure message 
-                    
-                    
-                    fetch("http://localhost:8081/StudentManagementApp/delete",
-                        {
-                            method :'POST',
- 
-                            body   : new URLSearchParams({'trno':srno})
-                        }   
-                    )
-                    .then(response => response.text())
-                    .then(data => {
-                                    if(data.trim() == "success")
-                                    {
-                                        swal("Success", "Record is Deleted Succesfully !!", "success");
-                                        var tr = document.getElementById(srno);
-                                        tr.remove();
-                                    
-                                    }
-                                    else if (data.trim() == "failed")
-                                    {
-                                        swal("Failure !!", "Failure to Delete Record !!", "error")
-                                    }
-                                }
-                    
-                    
-                    )
-                    .catch(error => console.error("MyError while Deleting RollNumber="+srno));
-                }
-                else
-                {
-                    //alert("Delete Scikpped !!");
-                    swal("Failure !!", "Record is Scikpped !!", "error")
-                }
-            }
-    </script>
+    <!-- Add SweetAlert2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
     
-  </head>
-<body>
-<div class="container" style="margin-top:100px">
-    <h2 class="text-center text-primary mt-5 mb-5">Delete Student</h2>
-    
-<div class="container-fluid d-flex justify-content-end"">
-
-    <form class="d-flex" role="search"   method="Get" action="./delete">
-        <input class = "form-control me-2 mb-4"type="text" name="srno">
-        <input class = "btn btn-outline-success me-2 mb-4" type="submit" name ="sbtn" value="Search">
-        <input class = "btn btn-outline-success me-2 mb-4" type="submit" name = "sbtn" value="Referesh">
-    </form>
-</div > 
-    
-    <table class="table table-hover table-bordered text-center">
-        <tr class="table-primary">
-            <th>RNO</th>
-            <th>NAME</th>
-            <th>PER</th>
-            <th>ACTION</th>     
-        </tr>
-        <%
-        List<Student> L = (List<Student>) request.getAttribute("students");
-        
-        if(L.isEmpty())
-        {
-            %>
-                <tr>
-                    <td class="text-danger bg-danger-subtle" colspan="4">No Data Found !!!</td>
-                </tr>
-            <%
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
         }
-        else
-        {
-            for(Student ob : L)
-            {
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        .container {
+            flex: 1;
+        }
+        
+        .footer {
+            margin-top: auto;
+            background: linear-gradient(135deg, #000000, #1a1a1a, #2d2d2d) !important;
+        }
+
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            margin-top: 30px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        .search-box {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+        }
+        
+        .action-btn {
+            transition: all 0.3s ease;
+        }
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        /* Pagination Styles */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .pagination-info {
+            margin: 0 20px;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .page-size-selector {
+            margin-left: 20px;
+        }
+
+        .page-size-selector select {
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            padding: 5px 10px;
+            background: white;
+        }
+
+        .pagination .page-item.active .page-link {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+
+        .pagination .page-link {
+            color: #007bff;
+            border: 1px solid #dee2e6;
+            margin: 0 2px;
+            border-radius: 5px;
+        }
+
+        .pagination .page-link:hover {
+            background-color: #e9ecef;
+            border-color: #dee2e6;
+        }
+
+        .records-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .no-records {
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+    </style>
+</head>
+<body>
+<div class="container" style="margin-top: 100px">
+    <h2 class="text-center text-primary mb-4">
+        <i class="fas fa-trash-alt"></i> Delete Student
+    </h2>
+    
+    <!-- Search Section -->
+    <div class="search-section">
+        <div class="row justify-content-end">
+            <div class="col-md-8">
+                <form class="d-flex" role="search" method="Get" action="./delete">
+                    <input class="form-control me-2" type="text" name="srno" 
+                           placeholder="Enter roll number to search...">
+                    <button class="btn btn-success me-2" type="submit" name="sbtn" value="Search">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                    <button class="btn btn-outline-secondary" type="submit" name="sbtn" value="Referesh">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Records Summary -->
+    <%
+    List<Student> allStudents = (List<Student>) request.getAttribute("students");
+    int totalRecords = (allStudents != null) ? allStudents.size() : 0;
+    int pageSize = 10; // Records per page
+    int totalPages = (int) Math.ceil((double) totalRecords / pageSize);
+    int currentPage = 1;
+    
+    // Get current page from request parameter
+    String pageParam = request.getParameter("page");
+    if (pageParam != null && !pageParam.isEmpty()) {
+        try {
+            currentPage = Integer.parseInt(pageParam);
+            if (currentPage < 1) currentPage = 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+        } catch (NumberFormatException e) {
+            currentPage = 1;
+        }
+    }
+    
+    // Calculate start and end indices for current page
+    int startIndex = (currentPage - 1) * pageSize;
+    int endIndex = Math.min(startIndex + pageSize, totalRecords);
+    
+    // Get sublist for current page
+    List<Student> currentPageStudents = new ArrayList<>();
+    if (allStudents != null && !allStudents.isEmpty()) {
+        currentPageStudents = allStudents.subList(startIndex, endIndex);
+    }
+    %>
+
+    
+    
+    <!-- Students Table -->
+    <div class="table-container">
+        <table class="table table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th><i class="fas fa-hashtag"></i> Roll No</th>
+                    <th><i class="fas fa-user"></i> Name</th>
+                    <th><i class="fas fa-percentage"></i> Percentage</th>
+                    <th><i class="fas fa-cog"></i> Action</th>     
+                </tr>
+            </thead>
+            <tbody>
+                <%
+                if(currentPageStudents == null || currentPageStudents.isEmpty()) {
+                %>
+                    <tr>
+                        <td colspan="4" class="text-center py-4 no-records">
+                            <div>
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i><br>
+                                <span class="text-muted h5">No students found</span><br>
+                                <small class="text-muted">Add some students or try a different search</small>
+                            </div>
+                        </td>
+                    </tr>
+                <%
+                } else {
+                    for(Student ob : currentPageStudents) {
                 %>
                     <tr id="<%=ob.getRno() %>">
-                    
-                        <td><%=ob.getRno() %></td>
+                        <td class="fw-bold text-primary"><%=ob.getRno() %></td>
                         <td><%=ob.getName() %></td>
-                        <td><%=ob.getPer() %></td>
                         <td>
-                            <button type="button" class="btn btn-danger" onclick="del(<%=ob.getRno() %>)">Delete</button>
+                            <span class="badge 
+                                <% if(ob.getPer() >= 75) { %>bg-success
+                                <% } else if(ob.getPer() >= 40) { %>bg-warning
+                                <% } else { %>bg-danger<% } %>">
+                                <%=ob.getPer() %>%
+                            </span>
                         </td>
-                        
+                        <td>
+                            <button type="button" class="btn btn-danger btn-sm action-btn" 
+                                    onclick="deleteStudent(<%=ob.getRno() %>, '<%=ob.getName().replace("'", "\\'") %>')">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </td>
                     </tr>
                 <% 
-            }
-            
-        }
-        
-        %>
-    </table>
-</div> <!-- End of the container -->
+                    }
+                }
+                %>
+            </tbody>
+        </table>
+    </div>
 
+    <!-- Pagination -->
+    <% if (totalPages > 1) { %>
+    <div class="pagination-container">
+        <nav aria-label="Page navigation">
+            <ul class="pagination mb-0">
+               
+                <!-- Previous Page -->
+                <% if (currentPage > 1) { %>
+                    <li class="page-item ">
+                        <a class="page-link " href="?page=<%= currentPage - 1 %>" aria-label="Previous">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                <% } else { %>
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-angle-left"></i></span>
+                    </li>
+                <% } %>
+
+                <!-- Page Numbers -->
+                <%
+                int startPage = Math.max(1, currentPage - 2);
+                int endPage = Math.min(totalPages, currentPage + 2);
+                
+                for (int i = startPage; i <= endPage; i++) {
+                    if (i == currentPage) {
+                %>
+                    <li class="page-item active">
+                        <span class="page-link"><%= i %></span>
+                    </li>
+                <% } else { %>
+                    <li class="page-item">
+                        <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+                    </li>
+                <% }
+                } %>
+				
+                <!-- Next Page -->
+                <% if (currentPage < totalPages) { %>
+                    <li class="page-item">
+                        <a class="page-link" href="?page=<%= currentPage + 1 %>" aria-label="Next">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                <% } else { %>
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fas fa-angle-right"></i></span>
+                    </li>
+                <% } %>
+
+                
+            </ul>
+        </nav>
+
+        <div class="pagination-info">
+            Page <%= currentPage %> of <%= totalPages %>
+        </div>
+
+        
+    </div>
+    <% } %>
+</div>
+
+<footer class="footer bg-dark py-4">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-4 mb-3 mb-lg-0">
+                <h5 class="fw-bold mb-2 text-white">
+                    <i class="fas fa-graduation-cap me-2" style="color: #4361ee;"></i>Student Management
+                </h5>
+                <p style="color: #e5e7eb; line-height: 1.5; opacity: 0.9; font-size: 0.9rem;">
+                    Comprehensive solution for managing student records, grades, and academic information efficiently.
+                </p>
+                <div class="social-links mt-2">
+                    <a href="https://www.linkedin.com/in/pradeep-jadhav-889746289/" target="_blank" class="text-decoration-none me-2" style="color: #4361ee; transition: all 0.3s ease;">
+                        <i class="fab fa-linkedin-in fa-md"></i>
+                    </a>
+                    <a href="https://github.com/pradeep29-11/" target="_blank" class="text-decoration-none me-2" style="color: #4361ee; transition: all 0.3s ease;">
+                        <i class="fab fa-github fa-md"></i>
+                    </a>
+                    <a href="https://www.instagram.com/pradeep_jadhav_2/" target="_blank" class="text-decoration-none" style="color: #4361ee; transition: all 0.3s ease;">
+                        <i class="fab fa-instagram fa-md"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-6 mb-3 mb-md-0">
+                <h6 class="fw-bold mb-2 text-white" style="font-size: 0.9rem;">Quick Links</h6>
+                <div class="d-flex flex-column">
+                    <a href="./addstudent" class="text-decoration-none mb-1 footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">Add Student</a>
+                    <a href="./display" class="text-decoration-none mb-1 footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">View Students</a>
+                    <a href="./update" class="text-decoration-none mb-1 footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">Update Records</a>
+                    <a href="./delete" class="text-decoration-none footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">Delete Student</a>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3 mb-md-0">
+                <h6 class="fw-bold mb-2 text-white" style="font-size: 0.9rem;">Support</h6>
+                <div class="d-flex flex-column">
+                    <a href="./About.jsp" class="text-decoration-none mb-1 footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">About Us</a>
+                    <a href="#" class="text-decoration-none mb-1 footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">Help Center</a>
+                    <a href="#" class="text-decoration-none mb-1 footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">Privacy Policy</a>
+                    <a href="#" class="text-decoration-none footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">Terms of Service</a>
+                </div>
+            </div>
+            <div class="col-lg-3">
+                <h6 class="fw-bold mb-2 text-white" style="font-size: 0.9rem;">Connect With Me</h6>
+                <div class="d-flex flex-column">
+                    <a href="https://www.linkedin.com/in/pradeep-jadhav-889746289/" target="_blank" class="text-decoration-none mb-2 footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">
+                        <i class="fab fa-linkedin me-2" style="color: #0077b5;"></i>LinkedIn
+                    </a>
+                    <a href="https://github.com/pradeep29-11/" target="_blank" class="text-decoration-none mb-2 footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">
+                        <i class="fab fa-github me-2" style="color: #f0f6fc;"></i>GitHub
+                    </a>
+                    <a href="https://www.instagram.com/pradeep_jadhav_2/" target="_blank" class="text-decoration-none footer-link" style="color: #e5e7eb; transition: color 0.3s ease; font-size: 0.85rem;">
+                        <i class="fab fa-instagram me-2" style="color: #e4405f;"></i>Instagram
+                    </a>
+                </div>
+            </div>
+        </div>
+        <hr class="my-3" style="border-color: rgba(255,255,255,0.2);">
+        <div class="text-center">
+            <p class="mb-0" style="color: #9ca3af; opacity: 0.8; font-size: 0.8rem;">&copy; 2025 Student Management System. All rights reserved.</p>
+        </div>
+    </div>
+</footer>
+
+<!-- Add SweetAlert2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+
+<script>
+    function deleteStudent(srno, name) {
+        Swal.fire({
+            title: "Are you sure?",
+            text: "You are Want to delete student: " + name + " (Roll No: " + srno + ") !!",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            cancelButtonColor: "#3085d6",
+            confirmButtonText: "Yes, Delete it!",
+            cancelButtonText: "Cancel",
+            customClass: {
+                confirmButton: 'btn btn-danger me-4',
+                cancelButton: 'btn btn-secondary'
+            },
+            buttonsStyling: false
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show loading state
+                Swal.fire({
+                    title: "Processing...",
+                    text: "Deleting student record",
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Use relative URL instead of absolute
+                fetch("./delete", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: 'trno=' + srno
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(data => {
+                    // Trim and check response
+                    const trimmedData = data.trim().toLowerCase();
+                    console.log('Server response:', trimmedData);
+                    
+                    if(trimmedData === "success") {
+                        Swal.fire({
+                            icon: "success",
+                            title: "Deleted!",
+                            text: "Student record has been deleted successfully!",
+                            confirmButtonColor: "#28a745",
+                            confirmButtonText: "OK"
+                        }).then(() => {
+                            // Remove the row from table with animation
+                            const row = document.getElementById(srno.toString());
+                            if (row) {
+                                row.style.transition = "all 0.5s ease";
+                                row.style.opacity = "0";
+                                row.style.transform = "translateX(-100%)";
+                                
+                                setTimeout(() => {
+                                    row.remove();
+                                    // Check if we need to reload the page
+                                    const remainingRows = document.querySelectorAll('tbody tr');
+                                    if (remainingRows.length === 1 && remainingRows[0].querySelector('td[colspan]')) {
+                                        location.reload();
+                                    } else if (remainingRows.length === 0) {
+                                        location.reload();
+                                    } else {
+                                        // If it's the last record on the page, go to previous page
+                                        const currentPage = <%= currentPage %>;
+                                        const totalRecords = <%= totalRecords %>;
+                                        if (remainingRows.length === 0 && currentPage > 1) {
+                                            window.location.href = '?page=' + (currentPage - 1);
+                                        }
+                                    }
+                                }, 500);
+                            } else {
+                                location.reload();
+                            }
+                        });
+                    } else {
+                        throw new Error('Delete operation failed: ' + data);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error while deleting RollNumber=" + srno, error);
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error!",
+                        text: "Failed to delete student record. Please try again.",
+                        confirmButtonColor: "#dc3545",
+                        confirmButtonText: "OK"
+                    });
+                });
+            } else {
+                Swal.fire({
+                    icon: "info",
+                    title: "Cancelled",
+                    text: "Student record is safe :)",
+                    confirmButtonColor: "#17a2b8",
+                    confirmButtonText: "OK"
+                });
+            }
+        });
+    }
+
+    function changePageSize(size) {
+        // This would typically be handled by the server
+        // For now, we'll reload the page with the new size in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('size', size);
+        urlParams.set('page', '1'); // Go to first page when changing size
+        window.location.href = '?' + urlParams.toString();
+    }
+
+    // Store page size in session storage for consistency
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const pageSize = urlParams.get('size');
+        if (pageSize) {
+            document.getElementById('pageSize').value = pageSize;
+        }
+    });
+</script>
+
+<!-- Add Font Awesome -->
+<script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script>
 </body>
 </html>
